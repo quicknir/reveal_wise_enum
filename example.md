@@ -10,8 +10,15 @@
  - Try to overcome your global addiction. Or at least do globals in private, not at your desk
  - Still have uses:
    - Logging
-   - Intrusive performance benchmarking
+   - Intrusive performance profiling
    - Polymorphic factories
+<aside class="notes">
+  All of the examples of useful logging have good excuses:
+   - the first two don't affect behavior, and you may want to switch
+     them on/off seamlessly, so passing in loggers/profilers is a pain
+   - a polymorphic factory is really a map from value to (dynamic) type,
+     and classes are global entities themselves
+</aside>
 
 
 ### Globals vs Singletons
@@ -103,7 +110,7 @@ clang++ -std=c++14 -c -fpic dynamic.cpp
 clang++ -shared -o libdynamic.so dynamic.o -L./ -lstatic
 # Compile main executable translation unit
 clang++ -std=c++14 -c main.x.cpp
-# Link executable against shared and static libraries
+# Link executable against static and shared libraries
 clang++ -L./ -Wl,-rpath=./ main.x.o -lstatic -ldynamic
 ```
 
@@ -114,7 +121,7 @@ clang++ -L./ -Wl,-rpath=./ main.x.o -lstatic -ldynamic
  - a class static constant string seems innocent, right?
 
 
-### What's happening
+### What's happening?
 Let's try and change our string class to something else:
 ```
 struct Informer {
@@ -128,14 +135,21 @@ struct Informer {
   }
 };
 ```
-
-We'll also print addresses in main instead of the string itself.
+```
+int main() {
+    std::cerr << g_informer.get() << "\n";
+    std::cerr << globalGetter().get() << "\n";
+    return 0;
+}
+```
 
 
 ### What now?
 
-New output:
-
+<section style="text-align: left;">
+Running the program doesn't segfault (since we aren't doing anything
+interesting) and prints:
+</section>
 ```
 ctor 0x602193
 ctor 0x602193
@@ -184,7 +198,7 @@ dtor 0x602193
  - What if we change link order?
 
 ```
-# Link executable against static and shared libraries
+# Link executable against shared and static libraries
 clang++ -L./ -Wl,-rpath=./ main.x.o -ldynamic -lstatic
 ```
 New output:
@@ -278,10 +292,9 @@ std::string& g_str() {
   return s;
 }
 ```
- - not backwards compatible (need extra `()`)
- - worse performance
- - laziness means work may happen at inconvenient times
- - not good when multiple globals involved (later)
+ - Not backwards compatible (need extra `()`)
+ - Worse performance
+ - Work may happen at inconvenient times
 
 
 ### Us peons not yet on 17?
@@ -322,10 +335,12 @@ std::string my_globals<>::g_str = "...";
 }
 static auto& g_str = detail::my_globals<>::g_str;
 ```
+<aside class="notes">
  - weird but wait: template classes have always needed
    `inline`
  - linker must know how to emit unique symbol already!
  - produces identical code to 17 `inline` keyword
+</aside>
 
 
 
@@ -405,10 +420,25 @@ Output:
 ```
 bash: line 7:  5940 Segmentation fault      (core dumped) ./a.out
 ```
+<aside class="notes">
+What this really illustrates is that there is no such thing as a private global.
+When you use a global, you have to be sure (usually) that it's the same global that
+your clients are using. So it can't ever be a full implementation detail.
+This also comes up with visibility, which I didn't really get into: if you hide
+global symbols at the linker level, they will construct and destruct correctly... twice!
+</aside>
 
 
 ### The DAG of globals
+<aside class="notes">
  - All of the header files in a program form a DAG, which is very useful
+ - Discuss guidelines
+ - DAG reflects dependencies of your globals
+ - Completely avoids issues with SIOF
+ - Cost:
+   - Tiny, tiny amount of link time (more symbols in more places)
+   - Can't have circularly dependent globals
+</aside>
 
 <table>
 <thead>
@@ -433,7 +463,6 @@ bash: line 7:  5940 Segmentation fault      (core dumped) ./a.out
 </tbody>
 </table>
 
- - Net result: complete avoidance of SIOF
- - Cost:
-   - Tiny, tiny amount of link time (more symbols in more places)
-   - Can't have circularly dependent globals
+
+
+### Conclusions
