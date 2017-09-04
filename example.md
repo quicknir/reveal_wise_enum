@@ -345,30 +345,63 @@ static auto& g_str = detail::my_globals<>::g_str;
 
 
 ### Avoid laziness in globals
-An example where laziness can cause conditional segfaulting
+#### A noisy logger
+```
+#include <iostream>
+
+struct Logger {
+    Logger() { std::cerr << "Constructed "; }
+    void log() { std::cerr << "logging " ; }
+    ~Logger() { std::cerr << "Destructed "; }
+
+    static Logger& instance() {
+        static Logger l;
+        return l;
+    }
+};
+```
+
+
+### Avoid laziness in globals
+#### A confused program
+
+```
+struct Foo {
+    ~Foo() { Logger::instance().log(); }
+};
+
+Foo f;
+
+int main(int argc, char *argv[])
+{
+    Logger::instance().log();
+    return 0;
+}
+```
+
+Output:
+```
+Constructed logging Destructed logging
+```
 
 
 ### Include global-defining headers in headers
 ```
 // Foo.h
-struct Foo {
-    Foo();
-};
+struct Foo { Foo(); };
 
 inline Foo f;
 
 // Foo.cpp
 #include <iostream>
 
-Foo::Foo() {
-    std::cerr << "hello world\n";
-}
+Foo::Foo() { std::cerr << "hello world\n"; }
 
-int main() {
-    return 0;
-}
+int main() { return 0; }
 ```
-Petitioning to have this be the new official C++ hello world program. It prints:
+<section style="text-align: left;">
+Output:
+</section>
 ```
 bash: line 7:  5940 Segmentation fault      (core dumped) ./a.out
 ```
