@@ -12,6 +12,7 @@
    - Logging
    - Intrusive performance profiling
    - Polymorphic factories
+
 <aside class="notes">
   All of the examples of useful logging have good excuses:
    - the first two don't affect behavior, and you may want to switch
@@ -346,20 +347,18 @@ static auto& g_str = detail::my_globals<>::g_str;
 
 ### Interdependent Globals
  - When globals depend on other globals, things can get nasty
- - To prevent nastiness, I will convince you of three things:
-   - Always define globals in the header
-   - Avoid laziness in globals
-   - Always include headers defining globals, in the header
+ - Static Initialization Order Fiasco (SIOF)
+ - Sadly: there is no silver bullet
+ - We can spread some knowledge around though
 
 
 ### Define globals in the header
- - We know from Static Initialization Order Fisaco (SIOF) that the initialization order between
-   different translation units is unspecified
+ - Initialization order between different translation units is unspecified
  - If your global is defined in `.cpp`, it will be initialized as part of its own TU
  - This means that it is *never* safe for a client global to use your global in its constructor/destructor
 
 
-### Avoid laziness in globals
+### Beware laziness and destructors
 #### A noisy logger
 ```
 #include <iostream>
@@ -438,6 +437,11 @@ global symbols at the linker level, they will construct and destruct correctly..
  - Cost:
    - Tiny, tiny amount of link time (more symbols in more places)
    - Can't have circularly dependent globals
+
+   How will I change this slide?
+
+   Talk about how the header DAG gives you nice ordering, but it's not trivial
+   to make use of it?
 </aside>
 
 <table>
