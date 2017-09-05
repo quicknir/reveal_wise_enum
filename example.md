@@ -6,12 +6,13 @@
 
 ### Globals
  - I've never looked at a codebase and thought: gee, this has fewer globals than it should
- - Nothing in this talk is an endorsement of using lots of globals
- - Try to overcome your global addiction. Or at least do globals in private, not at your desk
+ - This talk is not an endorsement of using lots of globals
+ - Try to overcome your global addiction
  - Still have uses:
    - Logging
    - Intrusive performance profiling
    - Polymorphic factories
+   - Dealing with someone else's globals!
 
 <aside class="notes">
   All of the examples of useful logging have good excuses:
@@ -42,7 +43,7 @@
 ### When good code goes bad
 
 
-### One library
+### A static library
 
 ```
 // static.h
@@ -60,7 +61,7 @@ std::string g_str = "string too long for short string"
 ```
 
 
-### Another library
+### A shared library
 
 <section><pre><code data-trim data-noescape>
 // dynamic.h
@@ -98,7 +99,7 @@ int main() {
 ```
 
 
-### Putting it together
+### Building the example
 
 ```bash
 # Compile static translation unit
@@ -191,7 +192,11 @@ dtor 0x602193
                  U std::cerr
 ```
 
-
+<aside class="notes">
+ U - undefined symbol "needed"
+ W - defined weak symbol, because Informer::get is inline
+ T - regular defined symbol
+</aside>
 
 ### Implications for our example
  - The shared library gets a copy of the object code for `g_informer`
@@ -202,7 +207,9 @@ dtor 0x602193
 # Link executable against shared and static libraries
 clang++ -L./ -Wl,-rpath=./ main.x.o -ldynamic -lstatic
 ```
+<section style="text-align: left;">
 New output:
+</section>
 ```
 ctor 0x601170
 0x601170
@@ -314,8 +321,8 @@ std::string& g_str() {
 }
 static auto& g_str = detail::g_str();
 ```
- - solves most issues of previous approach
-   (unless you really want to be lazy)
+ - Solves most issues of previous approach
+ - Sometimes laziness can be an upside, though
 
 
 ### Us peons not yet on 17?
@@ -355,7 +362,8 @@ static auto& g_str = detail::my_globals<>::g_str;
 ### Define globals in the header
  - Initialization order between different translation units is unspecified
  - If your global is defined in `.cpp`, it will be initialized as part of its own TU
- - This means that it is *never* safe for a client global to use your global in its constructor/destructor
+ - This means that it is not safe for a client global to use your global in its constructor/destructor
+ - Unless you provide a function to force initialization (similar to lazy)
 
 
 ### Beware laziness and destructors
@@ -376,7 +384,7 @@ struct Logger {
 ```
 
 
-### Avoid laziness in globals
+### Beware laziness and destructors
 #### A confused program
 
 ```
@@ -393,7 +401,9 @@ int main(int argc, char *argv[])
 }
 ```
 
+<section style="text-align: left;">
 Output:
+</section>
 ```
 Constructed logging Destructed logging
 ```
@@ -407,7 +417,7 @@ struct Foo { Foo(); };
 inline Foo f;
 
 // Foo.cpp
-#include <iostream>
+#include <iostream>  // defines cerr global
 
 Foo::Foo() { std::cerr << "hello world\n"; }
 
@@ -417,7 +427,8 @@ int main() { return 0; }
 Output:
 </section>
 ```
-bash: line 7:  5940 Segmentation fault      (core dumped) ./a.out
+bash: line 7:  5940 Segmentation fault
+      (core dumped) ./a.out
 ```
 <aside class="notes">
 What this really illustrates is that there is no such thing as a private global.
@@ -429,44 +440,25 @@ global symbols at the linker level, they will construct and destruct correctly..
 
 
 ### The DAG of globals
-<aside class="notes">
+
  - All of the header files in a program form a DAG, which is very useful
- - Discuss guidelines
- - DAG reflects dependencies of your globals
- - Completely avoids issues with SIOF
- - Cost:
-   - Tiny, tiny amount of link time (more symbols in more places)
-   - Can't have circularly dependent globals
+ - The guidelines above encourage you to leverage that, but it's not a perfect solution
+ - Think about the high level design of your globals; what should use what?
+ - Preferring globals and normal classes over singletons can help!
 
-   How will I change this slide?
-
-   Talk about how the header DAG gives you nice ordering, but it's not trivial
-   to make use of it?
+<aside class="notes">
+Example: consider a logger that wants to use intrusive profiler, and vice versa.
+If code is written in terms of singletons, this will be a pain. But if you just
+write normal classes, with some special interface that leverages a global,
+your logger can profile through its own profiling instance, or profiler can log
+through its own logger instance
 </aside>
-
-<table>
-<thead>
-<tr>
-	<th>Guideline</th>
-	<th>Guarantee</th>
-</tr>
-</thead>
-<tbody>
-	<tr>
-		<td>Always define globals in the header </td>
-		<td>All global definitions present in DAG</td>
-	</tr>
-	<tr>
-		<td>Avoid laziness in globals</td>
-		<td>Initialized when its header is read</td>
-	</tr>
-	<tr>
-		<td>Always include headers defining globals, in the header</td>
-		<td>Headers of a globals dependency read before its own header</td>
-	</tr>
-</tbody>
-</table>
-
 
 
 ### Conclusions
+
+ - Know the very basics of linkers/symbol tables
+ - Create all non-trivial globals using one of the 3 techniques
+   discussed to ensure they are safe
+ - Prefer to do things through the header when globals are involved
+ - Think very carefully about (transitive) dependencies between globals
