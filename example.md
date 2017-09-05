@@ -198,6 +198,7 @@ dtor 0x602193
  T - regular defined symbol
 </aside>
 
+
 ### Implications for our example
  - The shared library gets a copy of the object code for `g_informer`
  - So does the executable (because we linked with static first)
