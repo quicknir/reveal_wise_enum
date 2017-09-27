@@ -4,10 +4,15 @@
 
 
 
+#### Or
+
+### Things I never wanted to know about globals and linkers but was forced to find out against my will during a week long tearful debugging session
+
+
+
 ### Globals
  - I've never looked at a codebase and thought: gee, this has fewer globals than it should
- - This talk is not an endorsement of using lots of globals
- - Try to overcome your global addiction
+ - This ~~rant~~ talk is not an endorsement of using lots of globals
  - Still have uses:
    - Logging
    - Intrusive performance profiling
@@ -25,8 +30,8 @@
 
 ### Globals vs Singletons
  - Do not confuse them!
- - A singleton is a *class* that can have *at most* one instance
- - A global is a *variable* that has global scope
+ - Singleton: a *class* that can have at most one instance
+ - Global: a *variable* that has global scope
  - These are orthogonal, you can have them in any combination
  - Singletons are even more evil than globals (but still have uses)
 
@@ -260,6 +265,21 @@ dtor 0x601170
                 # 602068 <__dso_handle>
   callq  400970 <__cxa_atexit@plt>
 ```
+
+
+
+### Caveat coding
+> One thing should be noted, though. If your application consists of more than
+> one module (e.g. an exe and one or several dll's) that use Boost.Log, the
+> library must be built as a shared object. If you have a single executable or a
+> single module that works with Boost.Log, you may build the library as a static
+> library.
+
+
+
+### How about this?
+> Your application can use Boost.Log however you want and it will work
+> regardless
 
 
 
