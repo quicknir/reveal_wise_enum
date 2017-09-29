@@ -6,7 +6,16 @@
 
 #### Or
 
-### Things I never wanted to know about globals and linkers but was forced to find out against my will during a week long tearful debugging session
+### Things I never wanted to know about globals and linkers but was forced to find out anyway
+
+Note:
+I work on a trading team, in HFT
+ - I'm not a build engineer; focus on low latency + modelling systems
+ - bad part of me giving this talk: I'm not an expert in linkers, or globals
+   (whatever that means)
+ - good thing: neither are most C++ devs!
+ - not going to tell you how awesome the linker is
+ - just going to tell you how to avoid making me sad one day
 
 
 
@@ -19,13 +28,11 @@
    - Polymorphic factories
    - Dealing with someone else's globals!
 
-<aside class="notes">
+Note:
   All of the examples of useful logging have good excuses:
-   - the first two don't affect behavior, and you may want to switch
+   - the first two don't affect behwhere did they hurt youavior, and you may want to switch
      them on/off seamlessly, so passing in loggers/profilers is a pain
-   - a polymorphic factory is really a map from value to (dynamic) type,
-     and classes are global entities themselves
-</aside>
+   - polymorphic factory global: the price paid to allow self-registration
 
 
 ### Globals vs Singletons
@@ -39,9 +46,17 @@
 
 ### Compiler vs Linker
 
- - C++ devs like the compiler: there's a detailed spec, there's new language iterations...
- - But even code written in the 2017 edition of C++, could perhaps be linked by a linker from 1977
+ - C++ devs like the compiler: there's a detailed spec, there's new language
+   iterations...
+ - But even code written in the 2017 edition of C++, could maybe be linked by a
+ linker written before I was born
  - This leads to weirdness
+
+<aside class="notes">
+ - googling for compiler stuff: every conceivable question analyzed to the nth
+ detail on SO by 8 people with 100K + rep
+ - figuring out linker stuff: cricket
+</aside>
 
 
 
@@ -178,7 +193,7 @@ dtor 0x602193
    - If dynamic, politely say that the loader will get this
 
 
-### Examining the symbol table
+### Examining a symbol table
 
 ```
 ~/D/g/informer ❯❯❯ nm --demangle main.x.o
@@ -213,15 +228,18 @@ dtor 0x602193
 # Link executable against shared and static libraries
 clang++ -L./ -Wl,-rpath=./ main.x.o -ldynamic -lstatic
 ```
+<div class="fragment">
 <section style="text-align: left;">
 New output:
 </section>
-```
+<pre><code class="cpp">
 ctor 0x601170
 0x601170
 0x601170
 dtor 0x601170
-```
+</code></pre>
+</div>
+
 <aside class="notes">
   Left align new output. Use strike through to emphasize changed order of linking
 </aside>
@@ -268,26 +286,29 @@ dtor 0x601170
 
 
 
-### Caveat coding
-> One thing should be noted, though. If your application consists of more than
-> one module (e.g. an exe and one or several dll's) that use Boost.Log, the
-> library must be built as a shared object. If you have a single executable or a
-> single module that works with Boost.Log, you may build the library as a static
-> library.
-
-
-
-### How about this?
-> Your application can use Boost.Log however you want and it will work
-> regardless
-
-
-
 ### Hard to misuse
  - So we get segfaults conditional on linking order!
  - Could blame it on mixing shared + static linking
  - Not a good/constructive strategy in many environments
  - Better idea: Write code that *always* works
+
+
+### Caveat coding
+> One thing should be noted, though. If your application consists of more than
+> one module (e.g. an exe and one or several dll's) that use Boost.Log, the
+> library must be built as a shared object
+
+<aside class="notes">
+Boost documentation doesn't say (that I could see) why this is, but it does
+ensure that "a global logger instance will be unique even across module
+boundaries", so I suspect this is related
+</aside>
+
+
+### How about this?
+> Your application can build against Boost.Log however you want and it will work
+> regardless
+
 
 
 ### What to do?
@@ -380,6 +401,26 @@ static auto& g_str = detail::my_globals<>::g_str;
  - We can spread some knowledge around though
 
 
+### Best: avoid them!
+ - Avoiding singletons helps
+
+```
+class IntrusiveProfileData {
+  IntrusiveProfileData() {
+    Logger::instance().log("Interdependent globals!");
+    m_logger.log("Special logger instead!");
+  }
+};
+```
+
+<aside class="notes">
+ - Avoiding singleton helps because we can use the class
+ normally, by creating our own instance
+ - Singletons lock useful functionality in only a global
+   form
+</aside>
+
+
 ### Define globals in the header
  - Initialization order between different translation units is unspecified
  - If your global is defined in `.cpp`, it will be initialized as part of its own TU
@@ -429,6 +470,13 @@ Output:
 Constructed logging Destructed logging
 ```
 
+<aside class="notes">
+- this is a valid order for program to execute; Foo TU then main
+- f global gets created first, then we do logging in main
+- so logger gets destroyed first, since constructed second
+- f tries to log in dest, logger gone!
+</aside>
+
 
 ### Include global-defining headers in headers
 ```
@@ -452,34 +500,17 @@ bash: line 7:  5940 Segmentation fault
       (core dumped) ./a.out
 ```
 <aside class="notes">
-What this really illustrates is that there is no such thing as a private global.
-When you use a global, you have to be sure (usually) that it's the same global that
-your clients are using. So it can't ever be a full implementation detail.
-This also comes up with visibility, which I didn't really get into: if you hide
-global symbols at the linker level, they will construct and destruct correctly... twice!
+- this is a valid order for program to execute; Foo TU then main
+- f global gets created before cerr global
+- but f global calls to Foo constructor, which uses cerr!
 </aside>
 
-
-### The DAG of globals
-
- - All of the header files in a program form a DAG, which is very useful
- - The guidelines above encourage you to leverage that, but it's not a perfect solution
- - Think about the high level design of your globals; what should use what?
- - Preferring globals and normal classes over singletons can help!
-
-<aside class="notes">
-Example: consider a logger that wants to use intrusive profiler, and vice versa.
-If code is written in terms of singletons, this will be a pain. But if you just
-write normal classes, with some special interface that leverages a global,
-your logger can profile through its own profiling instance, or profiler can log
-through its own logger instance
-</aside>
 
 
 ### Conclusions
 
  - Know the very basics of linkers/symbol tables
- - Create all non-trivial globals using one of the 3 techniques
+ - Create all non-trivial globals using one of the techniques
    discussed to ensure they are safe
  - Prefer to do things through the header when globals are involved
  - Think very carefully about (transitive) dependencies between globals
