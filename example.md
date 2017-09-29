@@ -2,6 +2,8 @@
 
 #### (and the linker)
 
+### Nir Friedman
+
 
 
 #### Or
@@ -9,13 +11,13 @@
 ### Things I never wanted to know about globals and linkers but was forced to find out anyway
 
 Note:
-I work on a trading team, in HFT
- - I'm not a build engineer; focus on low latency + modelling systems
- - bad part of me giving this talk: I'm not an expert in linkers, or globals
-   (whatever that means)
- - good thing: neither are most C++ devs!
- - not going to tell you how awesome the linker is
- - just going to tell you how to avoid making me sad one day
+- I work on a trading team, in HFT
+- I'm not a build engineer; focus on low latency + modelling systems
+- I'm not an expert in linkers, or globals
+  (whatever that means)
+- good thing: neither are most C++ devs!
+- not going to tell you how awesome or interesting the linker is
+- just going to tell you how to avoid writing ccode that will make me sad one day
 
 
 
@@ -29,10 +31,10 @@ I work on a trading team, in HFT
    - Dealing with someone else's globals!
 
 Note:
-  All of the examples of useful logging have good excuses:
-   - the first two don't affect behwhere did they hurt youavior, and you may want to switch
-     them on/off seamlessly, so passing in loggers/profilers is a pain
-   - polymorphic factory global: the price paid to allow self-registration
+All of the examples of useful logging have good excuses:
+- the first two don't affect behavior, and you may want to switch
+  them on/off seamlessly, so passing in loggers/profilers is a pain
+- polymorphic factory global: the price paid to allow self-registration
 
 
 ### Globals vs Singletons
@@ -52,11 +54,11 @@ Note:
  linker written before I was born
  - This leads to weirdness
 
-<aside class="notes">
+Note:
+Compiler v Linker:
  - googling for compiler stuff: every conceivable question analyzed to the nth
  detail on SO by 8 people with 100K + rep
  - figuring out linker stuff: cricket
-</aside>
 
 
 
@@ -212,11 +214,10 @@ dtor 0x602193
                  U std::cerr
 ```
 
-<aside class="notes">
- U - undefined symbol "needed"
- W - defined weak symbol, because Informer::get is inline
- T - regular defined symbol
-</aside>
+Note:
+- U - undefined symbol "needed"
+- W - defined weak symbol, because Informer::get is inline
+- T - regular defined symbol
 
 
 ### Implications for our example
@@ -232,17 +233,12 @@ clang++ -L./ -Wl,-rpath=./ main.x.o -ldynamic -lstatic
 <section style="text-align: left;">
 New output:
 </section>
-<pre><code class="cpp">
-ctor 0x601170
+<pre><code class="cpp">ctor 0x601170
 0x601170
 0x601170
 dtor 0x601170
 </code></pre>
 </div>
-
-<aside class="notes">
-  Left align new output. Use strike through to emphasize changed order of linking
-</aside>
 
 
 ### Where is global initialized?
@@ -298,11 +294,10 @@ dtor 0x601170
 > one module (e.g. an exe and one or several dll's) that use Boost.Log, the
 > library must be built as a shared object
 
-<aside class="notes">
+Note:
 Boost documentation doesn't say (that I could see) why this is, but it does
 ensure that "a global logger instance will be unique even across module
 boundaries", so I suspect this is related
-</aside>
 
 
 ### How about this?
@@ -378,19 +373,19 @@ static auto& g_str = detail::g_str();
 namespace detail {
 template <class=void>
 struct my_globals {
-    std::string g_str;
+    static std::string g_str;
 };
 template <>
 std::string my_globals<>::g_str = "...";
 }
 static auto& g_str = detail::my_globals<>::g_str;
 ```
-<aside class="notes">
- - weird but wait: template classes have always needed
-   `inline`
- - linker must know how to emit unique symbol already!
- - produces identical code to 17 `inline` keyword
-</aside>
+Note:
+- weird but wait: template classes have always needed
+  `inline`
+- linker must know how to emit unique symbol already!
+- produces identical code to 17 `inline` keyword
+- Bonus: look at symbol table, "magic" 'u' letter!
 
 
 
@@ -413,12 +408,11 @@ class IntrusiveProfileData {
 };
 ```
 
-<aside class="notes">
- - Avoiding singleton helps because we can use the class
- normally, by creating our own instance
- - Singletons lock useful functionality in only a global
-   form
-</aside>
+Note:
+- Avoiding singleton helps because we can use the class
+normally, by creating our own instance
+- Singletons lock useful functionality in only a global
+  form
 
 
 ### Define globals in the header
@@ -470,12 +464,11 @@ Output:
 Constructed logging Destructed logging
 ```
 
-<aside class="notes">
+Note:
 - this is a valid order for program to execute; Foo TU then main
 - f global gets created first, then we do logging in main
 - so logger gets destroyed first, since constructed second
 - f tries to log in dest, logger gone!
-</aside>
 
 
 ### Include global-defining headers in headers
@@ -499,11 +492,10 @@ Output:
 bash: line 7:  5940 Segmentation fault
       (core dumped) ./a.out
 ```
-<aside class="notes">
+Note:
 - this is a valid order for program to execute; Foo TU then main
 - f global gets created before cerr global
 - but f global calls to Foo constructor, which uses cerr!
-</aside>
 
 
 
