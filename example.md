@@ -375,8 +375,9 @@ template <class=void>
 struct my_globals {
     static std::string g_str;
 };
-template <>
-std::string my_globals<>::g_str = "...";
+
+template <class T>
+std::string my_globals<T>::g_str = "...";
 }
 static auto& g_str = detail::my_globals<>::g_str;
 ```
@@ -386,6 +387,11 @@ Note:
 - linker must know how to emit unique symbol already!
 - produces identical code to 17 `inline` keyword
 - Bonus: look at symbol table, "magic" 'u' letter!
+- Corrections since talk:
+  - Make sure the class member is static
+  - define the generic template, not a specialization
+  - I've since found bugs with some of the major compilers
+    when using this technique; I don't recommend it
 
 
 
