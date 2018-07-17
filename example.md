@@ -73,15 +73,32 @@ Note:
 
 
 ### A saga of sorting
- - Level 1: qsort and std::sort are both NlogN, that's all I know!
- - Level 2: read Scott Meyers, Effective STL 46, std::sort is faster
- - Level 3: Learn more stuff. Learn compiler is "smart". qsort can get its
-   comparator inlined too! It will be the same speed
- - Level 4: Compilers are smart, but it's more complicated. std::sort
-   still faster.
+<table>
+	<thead><tr>
+        <th>Experience</th>
+        <th>Beliefs</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>Beginner</td>
+        <td>qsort and std::sort are both NlogN</td>
+    </tr>
+    <tr>
+        <td>Learning</td>
+        <td>Read Scott Meyers, Effective STL, std::sort faster</td>
+    </tr>
+    <tr>
+        <td>Expert Beginner</td>
+        <td>Compiler is "smart". Compiler will inline function pointer</td>
+    </tr>
+    <tr>
+        <td>Experienced</td>
+        <td>It depends</td>
+    </tr>
+    </tbody>
+</table>
 
 Note:
-  - Redo slide more nicely
   - I've had experienced devs be certain qsort would be as fast on modern compilers
   - It's not just about inlining, unwrap the size of the type
 
@@ -158,7 +175,6 @@ Note:
  - If I flip O3 on gcc, it gets inlined
  - It doesn't happen for recent MSVC and clang
  - Why not? Isn't this an "easy" optimization?
- - Only for a mind reading compiler
 
 Note:
 - TODO: clean up this section
@@ -205,16 +221,41 @@ Note:
 - multi-threading: cannot violate sequenced-before/after rules
   (but, as promised, won't discuss)
 
+
 ### Basic blocks Examples (1)
 
- - TODO: graph pictures
+<img data-src="control_flow_graph.png">
+
+Note:
+- ask audience: what structures are these?
+- First is if: with an else clause, or without? (with)
+- Second is loop: which kind? for, do while, or while? (while)
 
 
 ### Basic blocks Examples (2)
- - TODO: example with counting basic blocks in real function
+
+```
+void bar();
+
+void foo(const vector<int>& x, bool b) {
+   for (auto e : x) {
+     // Code region A
+     if (b) bar();
+     // Code region B
+   }
+}
+```
+
+Note:
+ - count basic blocks (assume region A, B, bar, are all one)
+ - don't worry about exact number (some arbitrary choices)
+ - 1 (for loop initialization)
+ - 1 (for loop test)
+ - for loop body: A (1), if body (1), bar (1)
+ - Emphasize the loop blocks, and that if test is part of A block
 
 
-### Static vs Dynamic information
+### Static vs Dynamic information (1)
  - static -> types
  - dynamic -> values
  - usually
@@ -260,15 +301,20 @@ Note:
 
 
 ### Inlining
- - This is the alpha and omega of optimizations
- - Most commonly associated with saving calling overhead
- - The real superpower: increases basic block size
- - Happens if:
+
+- This is the alpha and omega of optimizations
+- Most commonly associated with saving calling overhead
+- The real superpower: increases basic block size
+- Happens if:
    - the compiler *can* do it (direct vs indirect call)
    - the compiler *wants* to (code bloat tradeoff)
 
+Note:
+- special case: empty functions! No bloat obviously,
+  so always get "inlined", which is equivalent to deleted
 
-### Inlining
+
+### Inlining (1)
 ```
 double foo(double x,  double y) {
     return x + y;
@@ -291,6 +337,27 @@ bar(double):
 Note:
 - naive code would have bar as containing two basic blocks, but
   inlining means there's only one
+
+
+### Inlining (2)
+
+```
+void vector<T>::clear() {
+  for (auto it = m_begin; it != m_end; ++it) {
+    it->~T();
+  }
+  m_end = m_begin;
+}
+```
+
+Note:
+- let's go back to our example
+- call to ~T(). Can compiler inline? Yes, if ~T() is not virtual.
+- Will compiler inline? Yes, if ~T is short; definitely if it's
+  empty, as it is for any trivially destructible
+- inlining empty function, means loop body is empty, loop removed
+- Note: no special optimization effort. Different situations from
+  memcpy optimizations for trivially copyable
 
 
 ### Const propagation
@@ -477,6 +544,7 @@ bar(int):
   ret
 ```
 
+Note:
 - Fun fact: neither gcc nor clang do this optimization!
 - Highlight the cmp instruction
 - Seems like they tend to be conservative when a reference escapes
@@ -484,7 +552,7 @@ bar(int):
 - Another way in which it always works, poll
 - Poll: what I just said, contingent on? (foo not being inlined)
 - Pass by value or inlining, > const
-- "Const doesn't make zero difference but it rounds to zero"
+- cpp slacker: "Const doesn't make zero difference but it rounds to zero"
 
 
 ### Branchs - using and eliminating (1)
@@ -574,7 +642,6 @@ Note:
 
 
 ### Helping the compiler
-
 
 
 ### With bool (1)
@@ -668,6 +735,7 @@ Note:
 - why does this work? Because, the template generate two
   copies of the function, in each copy, the bool is constant
   and trivial to remove branch
+- Example usage: if buy, sell
 
 
 ### Generic pass by ref/value (1)
@@ -680,7 +748,7 @@ void foo(const T&);
 
 ### Generic pass by ref/value (2)
 
-```
+<section><pre><code data-trim data-noescape>
 template <class T>
 constexpr bool pass_by_value_v = std::is_trivially_copyable<T>::value && sizeof(T) < 16;
 
@@ -688,8 +756,8 @@ template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
 void foo(const T&);
 
 template <class T, enable_if_t<pass_by_value_v<T>, int> = 0>
-void foo(T t) { foo_impl(t); // ? }
-```
+void foo(T t) <p class="fragment" data-fragment-index="1">{ foo_impl(t); // ? } </p>
+</code></pre></section>
 
 Note:
  - TODO: make bodies appear later using reveal
@@ -704,12 +772,29 @@ template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
 void foo(const T&);
 
 template <class T, enable_if_t<pass_by_value_v<T>, int> = 0>
+void foo(T t);
+```
+
+Note:
+- how do we implement it? Implement it twice? What if generic?
+
+
+### Generic pass by ref/value (4)
+```
+template <class T>
+constexpr bool pass_by_value_v = std::is_trivially_copyable<T>::value && sizeof(T) < 16;
+
+template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
+void foo(const T&) { foo_impl(t); // ? }
+
+template <class T, enable_if_t<pass_by_value_v<T>, int> = 0>
 void foo(T t) { foo_impl(t); // ? }
 ```
 Note:
-- implement twice? have implementation function?
+- Ok, let's have an implementation function...
+- How do we implement the implementation function?
 
-### Generic pass by ref/value (4)
+### Generic pass by ref/value (5)
 
 ```
 template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
@@ -722,7 +807,7 @@ void foo_impl(T t) { foo_impl_impl(t); // ? }
 Note:
 - these slides keep going forever, generated dynamically in js (joke)
 
-### Generic pass by ref/value (5)
+### Generic pass by ref/value (6)
 
 ```
 template <class T>
