@@ -748,25 +748,10 @@ void foo(const T&);
 
 ### Generic pass by ref/value (2)
 
-<section><pre><code data-trim data-noescape>
-template <class T>
-constexpr bool pass_by_value_v = std::is_trivially_copyable<T>::value && sizeof(T) < 16;
-
-template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
-void foo(const T&);
-
-template <class T, enable_if_t<pass_by_value_v<T>, int> = 0>
-void foo(T t) <p class="fragment" data-fragment-index="1">{ foo_impl(t); // ? } </p>
-</code></pre></section>
-
-Note:
- - TODO: make bodies appear later using reveal
-
-
-### Generic pass by ref/value (3)
 ```
 template <class T>
-constexpr bool pass_by_value_v = std::is_trivially_copyable<T>::value && sizeof(T) < 16;
+constexpr bool pass_by_value_v =
+  std::is_trivially_copyable<T>::value && sizeof(T) < 16;
 
 template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
 void foo(const T&);
@@ -776,38 +761,38 @@ void foo(T t);
 ```
 
 Note:
-- how do we implement it? Implement it twice? What if generic?
+ - TODO: make bodies appear later using reveal
 
 
-### Generic pass by ref/value (4)
+### Generic pass by ref/value (3)
 ```
-template <class T>
-constexpr bool pass_by_value_v = std::is_trivially_copyable<T>::value && sizeof(T) < 16;
-
 template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
-void foo(const T&) { foo_impl(t); // ? }
+void foo(const T&) { foo_impl(t); /* ? */ }
 
 template <class T, enable_if_t<pass_by_value_v<T>, int> = 0>
-void foo(T t) { foo_impl(t); // ? }
+void foo(T t) { foo_impl(t); /* ? */ }
 ```
+
 Note:
 - Ok, let's have an implementation function...
 - How do we implement the implementation function?
 
-### Generic pass by ref/value (5)
+
+### Generic pass by ref/value (4)
 
 ```
 template <class T, enable_if_t<!pass_by_value_v<T>, int> = 0>
-void foo_impl(const T&);
+void foo_impl(const T&) { foo_impl_impl(t); /* ? */ };
 
 template <class T, enable_if_t<pass_by_value_v<T>, int> = 0>
-void foo_impl(T t) { foo_impl_impl(t); // ? }
+void foo_impl(T t) { foo_impl_impl(t); /* ? */ }
 ```
 
 Note:
 - these slides keep going forever, generated dynamically in js (joke)
 
-### Generic pass by ref/value (6)
+
+### Generic pass by ref/value (5)
 
 ```
 template <class T>
@@ -829,7 +814,7 @@ Note:
 ```
 bool my_comp(double x, double y) { return x > y; }
 
-std::sort(v.begin(), v.end(), my_comp); // 1
+std::sort(v.begin(), v.end(), my_comp);
 ```
 
 Note:
