@@ -109,6 +109,9 @@ body {
 .reveal ul ul ul {
   list-style-type: circle; }
 
+.block {
+    border: 1px solid red; }
+
 .reveal ul ul,
 .reveal ul ol,
 .reveal ol ol,
@@ -129,7 +132,7 @@ body {
 .reveal blockquote {
   display: block;
   position: relative;
-  width: 70%;
+  width: 100%;
   margin: 20px auto;
   padding: 5px;
   font-style: italic;

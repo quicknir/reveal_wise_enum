@@ -104,7 +104,7 @@ std::sort(v.begin(), v.end(), // 2
 
 ### How to resolve this?
  - Could benchmark
- - More precise in this case: check assembly, gossip ex machina
+ - More precise in this case: check assembly; ex machina
 
 ```
 #include <algorithm>
@@ -118,7 +118,7 @@ void foo(std::vector<double>& x) {
 ```
 
 
-### Gossip Ex Machina (1)
+### Ex Machina (1)
 
 ```
 foo(std::vector<double, std::allocator<double> >&):
@@ -136,7 +136,7 @@ Note:
   - introsort is heap/quick hybrid sort
 
 
-### Gossip Ex Machina (2)
+### Ex Machina (2)
 
 In the bowels of `__introsort_loop`:
 ```
@@ -165,7 +165,7 @@ Note:
 
 
 
-### Tools to help think about the compiler
+### Tools to help think about the optimizing compiler
 
 Note:
 - start of new section
@@ -173,10 +173,9 @@ Note:
 
 ### Training Day
 
-> It's not what you know, it's what you can prove.
+<img data-src="its-not-what-you-know-its-what-you-can-prove.jpg">
 
- - TODO: change margin for quotations to match the rest
- - The compiler has to produce code that is __always__ __correct__
+ - Optimized code must be <u>always</u> <u>correct</u>
  - Always: equivalent to a proof that for all inputs, the
    optimized code behaves the same as un-optimized
  - Correct: defined by the "as-if" rule; observable behavior
@@ -185,7 +184,6 @@ Note:
 Note:
 - Observable behavior itself requires precise definition,
   of course
-- TODO: get pictures of Denzel from training day
 
 
 ### Basic blocks 101
@@ -194,11 +192,9 @@ Note:
 > no branches in except to the entry and no branches out except at the exit
 
  - Inside a basic block: anything goes, mostly unobservable
- - exceptions: globals, multi-threading, volatile
- - The main job with basic blocks is to ensure they are correct on
-   *entry* and *exit*
- - Function jumps always begin a new basic block, and from the compiler's
-   perspective there are often unknowable entry points
+ - Exceptions: globals, multi-threading, volatile
+ - Basic blocks must be correct on *entry* and *exit*
+ - Function always begin a new basic block, and often unknowable entry points
 
 Note:
 - Definition from wikipedia
@@ -228,6 +224,7 @@ Note:
 
 
 ### Static vs Dynamic information
+
 ```
 void foo(const std::vector<double>& x);
 
@@ -386,17 +383,18 @@ Note:
 
 ### Passing by reference
 
-```
+<section><pre><code data-trim data-noescape>
 void foo(double x);
 void bar();
 
-void qux(const vector<double>& x, const bool& b) {
+void qux(const vector<double>& x, const bool<span class="block">&</span> b) {
    for (auto e : x) {
      bar();
      if (b) foo(e);
    }
 }
-```
+</code></pre></section>
+
 Note:
 - TODO: highlight & beside bool in weird color
 - Just one character: & makes a world of difference
@@ -413,6 +411,7 @@ Note:
   add rbx, 8
   call foo(double)
 ```
+
 ```
   call bar()
   test bpl, bpl
@@ -420,7 +419,7 @@ Note:
   movsd xmm0, QWORD PTR [rsp+8]
   add rbx, 8
   call foo(double)
-  ```
+```
 
 Note:
 - Audience poll: which is with, vs without, reference?
@@ -442,8 +441,8 @@ Note:
   be wrong only takes one counter-example
 
 
-### Impact of const
- - Prevent necessity of reloading value
+### Impact of const (1)
+
 ```
 void foo(const int&);
 
@@ -458,11 +457,34 @@ Note:
 - compiler should be able to call foo, and then simply return true,
   i.e. elide comparison
 - Without y being const, it can't
+- So const helps us? Right, right, right? (wrong as you transition)
+
+
+### Impact of const (1)
+```
+bar(int):
+  push rbx
+  lea eax, [rdi+1]
+  mov ebx, edi
+  sub rsp, 16
+  lea rdi, [rsp+12]
+  mov DWORD PTR [rsp+12], eax
+  call foo(int const&)
+  cmp DWORD PTR [rsp+12], ebx
+  setg al
+  add rsp, 16
+  pop rbx
+  ret
+```
+
 - Fun fact: neither gcc nor clang do this optimization!
+- Highlight the cmp instruction
+- Seems like they tend to be conservative when a reference escapes
 - However, if pass by value to foo, always work
 - Another way in which it always works, poll
 - Poll: what I just said, contingent on? (foo not being inlined)
 - Pass by value or inlining, > const
+- "Const doesn't make zero difference but it rounds to zero"
 
 
 ### Branchs - using and eliminating (1)
@@ -717,7 +739,7 @@ Note:
 - the compiler works for you! Not the other way around!
 
 
-### Sort saga, concluded
+### Sort saga, concluded (1)
 
 ```
 bool my_comp(double x, double y) { return x > y; }
@@ -727,10 +749,51 @@ std::sort(v.begin(), v.end(), my_comp); // 1
 
 Note:
 - This doesn't produce as good assembly, consistently?
-- Why not?
+- Why not? Comes back to basic blocks that the compiler
+  sees "by default"
+- Recall: we fixed this issue by writing a lambda that
+  calls the function
+- the lambda is a unique type, unique instance of sort
+  template, lambda gets my_comp inlined
+- Can we automate this? Yes, but it only looks nice
+  in 17
+
+
+### Sort saga, concluded (2)
+
+```
+template <auto F> // 17 only syntax
+struct function_object {
+  template <class ... Ts>
+  auto operator()(Ts&& ... ts) {
+    return f(std::forward<Ts>(ts)...);
+  }
+};
+```
+
+
+### Sort saga, concluded (3)
+
+```
+std::sort(v.begin(), v.end(), function_object<my_comp>{});
+```
+
+Note:
+- basis for proposal, monostate_function
+- Monostate function:
+  http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0477r0.pdf
+- fun exercise: write C++14 version (will require a macro at the very end)
 
 
 
+### Conclusion
 
-References:
- - Monostate function: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0477r0.pdf
+- Don't generalize, about the compiler being smart, or dumb
+- Instead, understand the compiler is amazing at some things,
+  limited at others
+- Understand where you can easily add value to the compiler
+- And when you should!
+
+Note:
+- chess computers > chess humans
+- But, "computer aided" chess is the highest level of all!
