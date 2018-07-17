@@ -465,35 +465,191 @@ Note:
 - Pass by value or inlining, > const
 
 
-### Branch elimination
+### Branchs - using and eliminating (1)
 
-
-### Inferred information - assuming predicate
-
-### Likely Unlikely
-
-### gcc7 inter-procedural optimizations
-
-### clang Variadic switch case (kinda)
-
+```
+int foo(optional<int>& x) {
+    int y = 1;
+    if (x) y = x.value();
+    return y;
+}
+```
 
 Note:
-- why it matters:
- - switch case not getting updates
- - need to make sure alternatives generate equally good code
-   e.g. variant
+- when I first heard about optional, was surprised that *
+  (the "easy" thing to write) does unchecked access
+- people said, performance cost, value() introduces another
+  branch in idiomatic usage that's unnecessary
+- "two branches"
+
+
+### Branchs - using and eliminating (2)
+
+```
+foo(std::optional<int>&):
+  cmp BYTE PTR [rdi+4], 0
+  mov eax, 1
+  je .L1
+  mov eax, DWORD PTR [rdi]
+.L1:
+  ret
+```
+
+Note:
+ - there's only one branch here.
+
+
+### Branchs - using and eliminating (3)
+```
+template <class T>
+class optional {
+  storage_type m_data;
+  bool m_active;
+
+  T& value() {
+    if (m_active)
+      return reinterpret_cast<T&>(m_data);
+    else
+      throw ...
+  }
+}
+```
+
+
+### Branchs - using and eliminating (4)
+
+```
+int foo(optional<int>& x) {
+    int y = 1;
+    if (x) y = x.value();
+    return y;
+}
+```
+
+
+### Branchs - using and eliminating (5)
+
+```
+int foo(optional<int>& x) {
+    int y = 1;
+    if (x.m_active) {
+      if (x.m_active) {
+        y = reinterpret_cast<T&>(x.m_data);
+      }
+      else {
+        throw ...
+      }
+    }
+    return y;
+}
+```
+
+Note:
+- hmm, branch inside branch, with same predicate...
+- Critical: *only* possible with inlining! Otherwise different basic
+  blocks + correctness guarantees make this not happen
 
 
 
-### Code you can write
+### Helping the compiler
 
 
 
-### With bool
+### With bool (1)
 
+```
+void qux(const vector<double>& x, bool b) {
+   for (auto e : x) {
+     bar();
+     if (b) foo(e);
+   }
+}
+```
+
+Note:
+- recall this code from previous slide
+- In this case, on O3, the boolean will get pulled out
+- However, this isn't robust: if the loop body is longer, compiler will quickly
+  decide the code bloat not worth removing the indirection
+
+
+### With bool (2)
+```
+void qux(const vector<double>& x, bool b) {
+   for (auto e : x) {
+     // many lines of code...
+     if (b) foo(e);
+     // many lines of code...
+   }
+}
+```
+Note:
+- What if we are certain we want the boolean pulled out of the loop?
+- May not care about code size, and icache near non issue if only one branch
+  ever executed in a particular process lifecycle
+
+
+### With bool (3)
+
+```
+template <bool B>
+void qux(const vector<double>& x) {
+  for (auto e : x) {
+    // many lines of code...
+    if (B) foo(e);
+    // many lines of code...
+  }
+}
+
+void qux(const vector<double>& x, bool b) {
+  if (b) qux<true>(x);
+  else qux<false>(x);
+}
+```
+
+Note:
+- this is basically guaranteed to turn into the kind of assembly
+  we want, even on O2
+
+
+### With bool (4)
+
+```
+template <class F>
+void with_bool(bool b, F f) {
+  if (b) f(std::true_type{});
+  else f(std::false_type{});
+}
+```
+
+Note:
+- encapsulate out the generic idea here, mapping a runtime bool
+  into two separate compile time segments
+
+
+### With bool (5)
+
+```
+void qux(const vector<double>& x, bool b) {
+  with_bool(b, [&] (auto B) {
+    for (auto e : x) {
+      // many lines of code...
+      if (B) foo(e);
+      // many lines of code...
+    }
+  });
+}
+```
+
+Note:
+- here, use this to more easily write desired version of qux
+- why does this work? Because, the template generate two
+  copies of the function, in each copy, the bool is constant
+  and trivial to remove branch
 
 
 ### Generic pass by ref/value (1)
+
 ```
 template <class T>
 void foo(const T&);
@@ -559,7 +715,20 @@ void foo(T t) { foo_impl(t); }
 
 Note:
 - the compiler works for you! Not the other way around!
-### function to lambda
+
+
+### Sort saga, concluded
+
+```
+bool my_comp(double x, double y) { return x > y; }
+
+std::sort(v.begin(), v.end(), my_comp); // 1
+```
+
+Note:
+- This doesn't produce as good assembly, consistently?
+- Why not?
+
 
 
 
