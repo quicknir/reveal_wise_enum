@@ -77,13 +77,14 @@ static_assert(wise_enum::is_wise_enum_v<my_lib::Color>, "");
 
 
 ### How it works
+
 ```
 WISE_ENUM(Color, (GREEN, 2), RED)
 ->
 enum Color {GREEN = 2, RED};
 constexpr std::array<::wise_enum::detail::value_and_name<Color>, 2>
 wise_enum_detail_array(::wise_enum::detail::Tag<name>) {
-  return {{GREEN, "GREEN"}, {RED, "RED"}};
+  return { {GREEN, "GREEN"}, {RED, "RED"} };
 }
 ```
 
