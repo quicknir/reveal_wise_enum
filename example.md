@@ -5,12 +5,12 @@
 
 ### Another one?
 
-A common problem, must be tons of great solutions already, right?
-
-
-### Another one?
-
-Nope!
+<section>
+	<section>
+		<p class="fragment fade-in">A common problem, must be tons of great solutions already, right?</p>
+		<p class="fragment fade-in">Nope!</p>
+	</section>
+</section>
 
 Note:
 - Surprisingly few, maintained, polished, self contained (or even not; e.g.
