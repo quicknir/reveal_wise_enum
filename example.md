@@ -49,7 +49,8 @@ static_assert(wise_enum::size<Color> == 2, "");
 ```
 std::cerr << "Enum values and names:\n";
 for (auto e : wise_enum::range<Color>) {
-  std::cerr << static_cast<int>(e.value) << " " << e.name << "\n";
+  std::cerr << static_cast<int>(e.value)
+            << " " << e.name << "\n";
 }
 ```
 
@@ -82,8 +83,10 @@ static_assert(wise_enum::is_wise_enum_v<my_lib::Color>, "");
 WISE_ENUM(Color, (GREEN, 2), RED)
 ->
 enum Color {GREEN = 2, RED};
-constexpr std::array<::wise_enum::detail::value_and_name<Color>, 2>
-wise_enum_detail_array(::wise_enum::detail::Tag<name>) {
+constexpr std::array<
+    ::wise_enum::detail::value_and_name<Color>, 2>
+wise_enum_detail_array(
+    ::wise_enum::detail::Tag<name>) {
   return { {GREEN, "GREEN"}, {RED, "RED"} };
 }
 ```
