@@ -20,6 +20,14 @@ Note:
   enums, meta enum)
 
 
+### Common problems in solution
+
+ - Don't actually create an enum/enum class
+ - Assume enums are contiguous
+ - Can't assign values explicitly to enumerators
+ - Uses X macros
+ - Sub-optimal to_string code
+
 
 ### Define problem
 
@@ -105,11 +113,13 @@ wise_enum_detail_array(
  - No heap allocations, dynamic initialization, or exceptions
  - Good performance; switch case for enum -> string for perf
 
- Note:
+Note:
   - idiomatic: uses logical features for each version,
     variable templates, string_view/optional
   - Supports explicit/implicit initializers, and storage,
     can be declared in namespace/class
+  - Coming soon: switch case to "lift" enum value runtime to
+    compile time
 
 
 ### Conclusion
