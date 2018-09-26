@@ -15,6 +15,10 @@
 Note:
 - Surprisingly few, maintained, polished, self contained (or even not; e.g.
   boost surprisingly doesn't have a solution for this)
+- Many, many weekend projects.
+- Found one, maybe 2 polished smart enum, both have issues, ask me later (better
+  enums, meta enum)
+
 
 
 ### Define problem
@@ -100,6 +104,12 @@ wise_enum_detail_array(
  - Constexpr to the max
  - No heap allocations, dynamic initialization, or exceptions
  - Good performance; switch case for enum -> string for perf
+
+ Note:
+  - idiomatic: uses logical features for each version,
+    variable templates, string_view/optional
+  - Supports explicit/implicit initializers, and storage,
+    can be declared in namespace/class
 
 
 ### Conclusion
