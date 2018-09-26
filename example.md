@@ -73,7 +73,7 @@ assert(!x2);
 ### Examples - Traits and TMP
 
 ```
-static_assert(wise_enum::is_wise_enum_v<my_lib::Color>, "");
+static_assert(wise_enum::is_wise_enum_v<Color>, "");
 ```
 
 
